@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f1ec">
+  <title>Gres effetto legno - Visualizza nella stanza</title>
+
+  <!-- Visualizzatore 3D/AR di Google (iPhone e Android) -->
+  <script type="module" src="https://cdn.jsdelivr.net/npm/@google/model-viewer@4.0.0/dist/model-viewer.min.js"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f1ec; color: #2a2420; -webkit-tap-highlight-color: transparent;
+    }
+    .page {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    header { flex: 0 0 auto; text-align: center; padding: 20px 20px 0; }
+    header h1 { margin: 0; font-size: 24px; font-weight: 800; }
+    header p  { margin: 6px 0 0; font-size: 13px; opacity: .7; }
+
+    #mv {
+      flex: 1 1 auto; width: 100%; min-height: 0;
+      background: transparent; --poster-color: transparent;
+      --progress-bar-color: #1f5fe0;
+    }
+
+    .bottom {
+      flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 8px 20px calc(22px + env(safe-area-inset-bottom, 0px)); text-align: center;
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; max-width: 360px; min-height: 56px; padding: 14px 24px;
+      border-radius: 30px; font-size: 18px; font-weight: 700; font-family: inherit;
+      cursor: pointer; -webkit-appearance: none; appearance: none;
+    }
+    .btn svg { width: 24px; height: 24px; fill: currentColor; flex: 0 0 auto; }
+
+    #btn-room { background: #1f5fe0; color: #fff; border: 0; box-shadow: 0 8px 22px rgba(31,95,224,.35); }
+    #btn-room:active { transform: scale(.98); background: #1749b8; }
+
+    #btn-follow {
+      min-height: 46px; font-size: 15px; font-weight: 600;
+      background: transparent; color: #2a2420; border: 2px solid rgba(42,36,32,.35);
+    }
+    #btn-follow:active { background: rgba(42,36,32,.08); }
+
+    .hint { margin: 2px 0 0; font-size: 12px; opacity: .7; line-height: 1.4; }
+    #no-ar { display: none; margin: 0; font-size: 13px; opacity: .85; line-height: 1.4; }
+
+    /* ---------- Vista fotocamera: il pavimento segue la fotocamera ---------- */
+    #cam-view { position: fixed; inset: 0; z-index: 100; display: none; background: #111; }
+    #cam-view.open { display: block; }
+    #cam { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    #mv-cam {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      background: transparent; --poster-color: transparent; --progress-bar-color: #1f5fe0;
+    }
+    #close-btn {
+      position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); left: 14px; z-index: 5;
+      background: #1f5fe0; color: #fff; border: 0; border-radius: 20px;
+      padding: 10px 18px; font-size: 14px; font-weight: 700; font-family: inherit;
+      box-shadow: 0 4px 12px rgba(0,0,0,.4); cursor: pointer;
+    }
+    #cam-hint {
+      position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%;
+      transform: translateX(-50%); z-index: 5; pointer-events: none;
+      background: rgba(0,0,0,.75); color: #fff; padding: 10px 18px; border-radius: 20px;
+      font-size: 13px; font-weight: 600; text-align: center; width: max-content; max-width: 90vw;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="page">
+    <header>
+      <h1>Gres effetto legno</h1>
+      <p>Ruota il pavimento con il dito · pizzica per ingrandire</p>
+    </header>
+
+    <model-viewer
+      id="mv"
+      src="./Gres_effetto_legno.glb"
+      ios-src="./Gres_effetto_legno.usdz"
+      alt="Pavimento in gres effetto legno in 3D"
+      ar
+      ar-modes="scene-viewer webxr quick-look"
+      ar-scale="auto"
+      ar-placement="floor"
+      camera-controls
+      touch-action="pan-y"
+      auto-rotate
+      auto-rotate-delay="2000"
+      rotation-per-second="15deg"
+      camera-orbit="25deg 55deg auto"
+      shadow-intensity="1"
+      shadow-softness="1"
+      exposure="1.05"
+      interaction-prompt="none"
+      reveal="auto">
+
+      <!-- Bottone AR visibile: apre la fotocamera -->
+      <button slot="ar-button" id="btn-room" class="btn" type="button"
+              style="position:absolute; left:0; right:0; bottom:0; margin:0 auto; display:none" aria-hidden="true"></button>
+    </model-viewer>
+
+    <div class="bottom">
+      <!-- PRINCIPALE: AR reale, il pavimento si appoggia sul pavimento della stanza -->
+      <button id="btn-room-main" class="btn" type="button" style="background:#1f5fe0;color:#fff;border:0;box-shadow:0 8px 22px rgba(31,95,224,.35)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Zm0 2.3 6.5 3.6L12 11.5 5.5 7.9 12 4.3ZM5 9.6l6 3.3v6.6l-6-3.3V9.6Zm8 9.9v-6.6l6-3.3v6.6l-6 3.3Z"/></svg>
+        Visualizza nella stanza
+      </button>
+
+      <!-- SECONDARIO: il pavimento resta fisso sullo schermo e segue la fotocamera -->
+      <button id="btn-follow" class="btn" type="button">Segui la fotocamera</button>
+
+      <p class="hint" id="hint">Nella stanza: trascina per spostare, due dita per ruotare, pizzica per allargare. Misura reale: circa 1,78 × 2,21 m.</p>
+      <p id="no-ar">La realtà aumentata non è disponibile su questo dispositivo.<br>Apri questa pagina da un iPhone o da un telefono Android.</p>
+    </div>
+  </div>
+
+  <!-- Vista fotocamera (modalità "segui") -->
+  <div id="cam-view">
+    <video id="cam" autoplay muted playsinline></video>
+    <model-viewer
+      id="mv-cam"
+      alt="Pavimento in gres effetto legno"
+      camera-controls
+      touch-action="none"
+      camera-orbit="0deg 45deg auto"
+      shadow-intensity="0"
+      exposure="1.05"
+      interaction-prompt="none">
+    </model-viewer>
+    <button id="close-btn" type="button">✕ Chiudi</button>
+    <div id="cam-hint">Muovi il telefono: il pavimento ti segue · ruota con il dito, pizzica per ingrandire</div>
+  </div>
+
+  <script>
+    const mv       = document.getElementById('mv');
+    const mvCam    = document.getElementById('mv-cam');
+    const camView  = document.getElementById('cam-view');
+    const video    = document.getElementById('cam');
+    const btnRoom  = document.getElementById('btn-room-main');
+    const btnFollow = document.getElementById('btn-follow');
+    let stream = null;
+
+    // Se l'AR nativa non è supportata (es. computer) mostra un avviso e nasconde il bottone
+    mv.addEventListener('load', () => {
+      setTimeout(() => {
+        if (!mv.canActivateAR) {
+          btnRoom.style.display = 'none';
+          document.getElementById('hint').style.display = 'none';
+          document.getElementById('no-ar').style.display = 'block';
+        }
+      }, 300);
+    });
+
+    // "Visualizza nella stanza": apre la fotocamera in realtà aumentata
+    btnRoom.addEventListener('click', () => mv.activateAR());
+
+    // "Segui la fotocamera": fotocamera in pagina con il pavimento fisso sullo schermo
+    btnFollow.addEventListener('click', async () => {
+      mvCam.src = './Gres_effetto_legno.glb';
+      camView.classList.add('open');
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } }, audio: false
+        });
+        video.srcObject = stream;
+        await video.play();
+      } catch (err) {
+        console.warn('Fotocamera non disponibile:', err);
+      }
+    });
+
+    document.getElementById('close-btn').addEventListener('click', () => {
+      camView.classList.remove('open');
+      if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+      video.srcObject = null;
+    });
+  </script>
+
+</body>
+</html>
